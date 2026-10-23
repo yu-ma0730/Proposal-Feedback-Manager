@@ -84,6 +84,22 @@ textarea::placeholder,input::placeholder{color:var(--muted);font-size:0.8rem;}
 .selector-btn{padding:8px 12px;font-size:0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all 0.2s;}
 .selector-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
 
+.evaluation-section{background:var(--bg);border-radius:8px;padding:14px;margin-top:14px;border-left:4px solid #7c3aed;}
+.eval-title{font-size:0.75rem;font-weight:700;color:var(--muted);letter-spacing:0.06em;margin-bottom:8px;}
+.eval-buttons{display:flex;gap:8px;margin-bottom:12px;}
+.eval-btn{flex:1;padding:10px;font-size:0.8rem;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;}
+.eval-textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.8rem;resize:vertical;min-height:150px;}
+
+.scores-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;}
+.score-item{background:var(--white);border:1px solid var(--border);border-radius:6px;padding:10px;}
+.score-label{font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:4px;}
+.score-stars{font-size:0.9rem;color:var(--warning);}
+.score-value{font-size:0.75rem;color:var(--text);margin-top:2px;}
+
+.total-score{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%);color:#fff;border-radius:8px;padding:16px;text-align:center;margin-top:12px;}
+.total-num{font-size:2rem;font-weight:900;}
+.total-label{font-size:0.85rem;margin-top:4px;}
+
 .pdf-note{font-size:0.75rem;color:var(--muted);text-align:center;padding:8px;background:var(--bg);border-radius:6px;}
 
 .api-badge{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:0.8rem;color:var(--primary);display:flex;align-items:center;gap:8px;}
@@ -312,13 +328,26 @@ function renderSlides(){
   variations.forEach(function(v,i){
     var slide=document.createElement('div');
     slide.className='slide'+(i===0?' active':'');
+
+    var evalPrompt='以下の提案文を、以下の10の視点から評価してください。\n\n【提案文】\n'+v.result+'\n\n【評価視点】\n1. 説得力（クライアント向けの説得度）\n2. 実現可能性（実装できるか）\n3. 簡潔性（簡潔でわかりやすいか）\n4. 専門性（専門知識の深さ）\n5. 実装難易度（実装の難しさ：低いほど高得点）\n6. クライアント理解度（要望の理解度）\n7. リスク評価（潜在的な問題への対応）\n8. 創意工夫度（オリジナリティ）\n9. 信頼性（信用・信頼感）\n10. 予算効率性（コストパフォーマンス）\n\n以下の JSON 形式で返してください：\n{\n  "comment": "全体的な評価コメント（100字程度）",\n  "scores": {\n    "persuasiveness": 4,\n    "feasibility": 5,\n    "conciseness": 3,\n    "expertise": 4,\n    "difficulty": 5,\n    "understanding": 4,\n    "riskManagement": 3,\n    "creativity": 4,\n    "reliability": 5,\n    "efficiency": 4\n  },\n  "improvements": "改善提案（200字程度）"\n}';
+
     slide.innerHTML='<div class="slide-number">パターン '+(i+1)+' / '+variations.length+'</div>'
       +'<div class="slide-title">'+v.name+'</div>'
       +'<div class="slide-section"><div class="slide-label">📌 アプローチ</div><div class="slide-content">'+v.approach+'</div></div>'
       +'<div class="slide-section"><div class="slide-label">⭐ 重要ポイント</div><div class="slide-content">'+v.keyPoints+'</div></div>'
       +'<div class="slide-section"><div class="slide-label">📝 修整後の提案</div><div class="slide-content">'+v.result+'</div></div>'
-      +'<div class="slide-section"><div class="slide-label">🔍 第三者評価</div><div class="slide-content">'+v.evaluation+'</div></div>';
+      +'<div class="slide-section"><div class="slide-label">🔍 初期評価</div><div class="slide-content">'+v.evaluation+'</div></div>'
+      +'<div class="evaluation-section"><div class="eval-title">📊 外部AI評価</div>'
+      +'<div class="eval-buttons"><button class="eval-btn" onclick="copyEvalTemplate('+i+')">📋 評価テンプレートをコピー</button></div>'
+      +'<div class="eval-title">評価結果を貼り付け</div>'
+      +'<textarea class="eval-textarea" id="evalInput'+i+'" placeholder="別のAI（ChatGPT等）から評価結果をコピペしてください"></textarea>'
+      +'<button class="btn btn-primary" onclick="submitEvaluation('+i+')" style="margin-top:8px;">採点を実行</button>'
+      +'<div id="evalResult'+i+'"></div></div>';
     container.appendChild(slide);
+  });
+
+  window.evalTemplates=variations.map(function(v,i){
+    return {idx:i,template:evalPrompt};
   });
 
   var selector=document.getElementById('slideSelector');
@@ -342,6 +371,45 @@ function goToSlide(n){
 
 document.getElementById('btnPrev').onclick=function(){goToSlide(currentSlide-1);};
 document.getElementById('btnNext').onclick=function(){goToSlide(currentSlide+1);};
+
+function copyEvalTemplate(idx){
+  var template=window.evalTemplates[idx].template;
+  navigator.clipboard.writeText(template).then(function(){
+    alert('評価テンプレートをコピーしました。\n\nChatGPT や Gemini など好きなAIに貼り付けて、評価を依頼してください。');
+  }).catch(function(err){
+    alert('コピーに失敗しました: '+err);
+  });
+}
+
+function submitEvaluation(idx){
+  var evalText=document.getElementById('evalInput'+idx).value.trim();
+  if(!evalText){alert('評価結果を貼り付けてください');return;}
+
+  try{
+    var evalJson=JSON.parse(evalText);
+    var scores=evalJson.scores;
+    var total=(scores.persuasiveness+scores.feasibility+scores.conciseness+scores.expertise+scores.difficulty+scores.understanding+scores.riskManagement+scores.creativity+scores.reliability+scores.efficiency);
+
+    var labels=['説得力','実現可能性','簡潔性','専門性','実装難易度','クライアント理解度','リスク評価','創意工夫度','信頼性','予算効率性'];
+    var keys=['persuasiveness','feasibility','conciseness','expertise','difficulty','understanding','riskManagement','creativity','reliability','efficiency'];
+
+    var html='<div style="margin-top:12px;"><div class="eval-title">💬 評価コメント</div><div style="font-size:0.88rem;line-height:1.7;color:#1a1d2e;margin-bottom:12px;">'+evalJson.comment+'</div>'
+      +'<div class="eval-title">⭐ 採点結果</div><div class="scores-grid">';
+
+    keys.forEach(function(k,i){
+      var s=scores[k];
+      var stars='★'.repeat(s)+'☆'.repeat(5-s);
+      html+='<div class="score-item"><div class="score-label">'+labels[i]+'</div><div class="score-stars">'+stars+'</div><div class="score-value">'+s+'/5</div></div>';
+    });
+
+    html+='</div><div class="total-score"><div class="total-num">'+total+'/50</div><div class="total-label">'+(Math.round(total*100/50))+'%</div></div>'
+      +'<div class="eval-title" style="margin-top:12px;">📝 改善提案</div><div style="font-size:0.88rem;line-height:1.7;color:#1a1d2e;">'+evalJson.improvements+'</div></div>';
+
+    document.getElementById('evalResult'+idx).innerHTML=html;
+  }catch(e){
+    alert('評価結果の形式が正しくありません。\n\nJSON形式で貼り付けてください。\n\nエラー: '+e.message);
+  }
+}
 
 document.getElementById('btnPDF').onclick=function(){
   var element=document.createElement('div');
