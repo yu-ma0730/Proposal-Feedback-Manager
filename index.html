@@ -117,16 +117,20 @@ textarea::placeholder,input::placeholder{color:var(--muted);font-size:0.8rem;}
     </div>
   </div>
 
-  <!-- ページ2：提案内容 -->
+  <!-- ページ2：案件ID・提案内容 -->
   <div class="page" id="page2">
     <div class="card">
-      <div class="card-title">提案内容を貼り付け</div>
-      <div class="card-desc">提案査定ツールからコピーした提案内容<br>またはテキストを貼り付けてください。</div>
+      <div class="card-title">案件情報を入力</div>
+      <div class="card-desc">案件IDと提案内容で履歴管理します</div>
+      <div class="field">
+        <label>案件ID（提案査定ツールからコピー）*</label>
+        <input type="text" id="caseId" placeholder="CASE-... の形式で貼り付け">
+      </div>
       <div class="field">
         <label>提案内容 *</label>
         <textarea id="proposalContent" rows="8" placeholder="提案内容をここに貼り付けてください"></textarea>
       </div>
-      <p class="err" id="err2">※ 提案内容を入力してください</p>
+      <p class="err" id="err2">※ 案件IDと提案内容を入力してください</p>
       <button class="btn btn-primary" id="btn2">次へ →</button>
       <hr class="divider">
       <button class="btn btn-ghost" id="btn2back">← 戻る</button>
@@ -213,7 +217,7 @@ function goTo(n){
   window.scrollTo(0,0);
 }
 
-var apiKey='',proposalContent='',clientRequest='',variations=[];
+var apiKey='',caseId='',proposalContent='',clientRequest='',variations=[];
 var currentSlide=0;
 
 document.getElementById('btn1').onclick=function(){
@@ -226,8 +230,10 @@ document.getElementById('btn1').onclick=function(){
 };
 
 document.getElementById('btn2').onclick=function(){
+  var id=document.getElementById('caseId').value.trim();
   var content=document.getElementById('proposalContent').value.trim();
-  if(!content){document.getElementById('err2').style.display='block';return;}
+  if(!id||!content){document.getElementById('err2').style.display='block';return;}
+  caseId=id;
   proposalContent=content;
   document.getElementById('err2').style.display='none';
   goTo(3);
@@ -371,9 +377,22 @@ document.getElementById('btnPDF').onclick=function(){
 };
 
 document.getElementById('btnConfirm').onclick=function(){
-  alert('選択が確定しました。\n\nバリエーションの中から選択したものをご使用ください。');
+  if(variations.length===0){alert('まずバリエーションを生成してください');return;}
+  var selectedIdx=currentSlide;
+  var selected=variations[selectedIdx];
+  var now=new Date().toLocaleString('ja-JP');
+
+  var feedback={caseId:caseId,proposal:proposalContent,request:clientRequest,selected:selected,timestamp:now};
+  try{
+    var history=JSON.parse(localStorage.getItem('feedbackHistory')||'[]');
+    history.push(feedback);
+    localStorage.setItem('feedbackHistory',JSON.stringify(history));
+  }catch(e){}
+
+  alert('案件ID: '+caseId+'\nパターン: '+selected.name+'\n\n選択が確定しました。');
   goTo(1);
   document.getElementById('apiKey').value='';
+  document.getElementById('caseId').value='';
   document.getElementById('proposalContent').value='';
   document.getElementById('clientRequest').value='';
   document.getElementById('additionalInfo').value='';
